@@ -1,0 +1,112 @@
+package com.acn.aia.adapter.tmall.util;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import com.acn.aia.adapter.tmall.TmallClient;
+import com.acn.aia.biz.service.domain.OrderEntry;
+import com.acn.aia.biz.service.exception.OrderException;
+import com.acn.aia.core.su.core.Converter;
+import com.acn.aia.core.utils.DateUtil;
+import com.taobao.api.ApiException;
+import com.taobao.api.domain.Order;
+import com.taobao.api.domain.Trade;
+import com.taobao.api.request.TradesSoldIncrementGetRequest;
+import com.taobao.api.response.TradesSoldIncrementGetResponse;
+
+/**
+ * Order helper to be used to directly integrate with Tmall
+ * 
+ * @author fei.zhu
+ * */
+public class OrderHelper {
+	private Logger logger = LoggerFactory.getLogger(this.getClass());
+	@Autowired
+	private Converter<Trade, com.acn.aia.biz.service.domain.Order> orderConverter;
+	@Autowired
+	private Converter<Order, OrderEntry> orderEntryConverter;
+	@Autowired
+	private TmallClient tmallClient;
+
+	/**
+	 * Retrieve all orders from 1 day ago generated in Taobao
+	 * */
+	public List<com.acn.aia.biz.service.domain.Order> retrieveOrders1DayAgo( Date currentDate )
+			throws OrderException {
+		List<com.acn.aia.biz.service.domain.Order> orderList = new ArrayList<com.acn.aia.biz.service.domain.Order>();
+		List<Trade> trades = null;
+		try {
+			TradesSoldIncrementGetRequest req = new TradesSoldIncrementGetRequest();
+			req.setFields("seller_nick,buyer_nick,title,type,created,sid,tid,seller_rate,buyer_rate,"
+					+ "status,payment,discount_fee,adjust_fee,post_fee,total_fee,pay_time,end_time,modified,"
+					+ "consign_time,buyer_obtain_point_fee,point_fee,real_point_fee,received_payment,"
+					+ "commission_fee,pic_path,num_iid,num_iid,num,price,cod_fee,cod_status,shipping_type,"
+					+ "receiver_name,receiver_state,receiver_city,receiver_district,receiver_address,receiver_zip,"
+					+ "receiver_mobile,receiver_phone,orders.title,orders.pic_path,orders.price,orders.num,"
+					+ "orders.iid,orders.num_iid,orders.sku_id,orders.refund_status,orders.status,"
+					+ "orders.oid,orders.total_fee,orders.payment,orders.discount_fee,orders.adjust_fee,"
+					+ "orders.sku_properties_name,orders.item_meal_name,orders.buyer_rate,orders.seller_rate,"
+					+ "orders.outer_iid,orders.outer_sku_id,orders.refund_id,orders.seller_type");
+			req.setStartModified(DateUtil.getDate(DateUtil.subDay(currentDate),"yyyy-MM-dd HH:mm:ss"));
+			req.setEndModified(currentDate);
+
+			TradesSoldIncrementGetResponse response = tmallClient.execute(req);
+
+			trades = response.getTrades();
+
+			if (trades == null || trades.isEmpty()) {
+				logger.info("No trade need to be downloaded.");
+				return null;
+			}
+
+		} catch (ApiException e) {
+			logger.error( e.getErrCode() + ":" + e.getErrMsg(), e);
+			throw new OrderException(e);
+		}
+
+		
+		// Order transformation
+		for (Trade taobaoTrade : trades) {
+			logger.debug("Start to transform Trade " + taobaoTrade.getTid());
+
+			// Convert to normalized Order from taobao trade
+			com.acn.aia.biz.service.domain.Order normalizedOrder = convert( taobaoTrade );
+			orderList.add(normalizedOrder);
+			
+			List<Order> taobaoOrders = taobaoTrade.getOrders();
+			if ( taobaoOrders == null || taobaoOrders.isEmpty() )
+				throw new OrderException("Taobao Trade " + taobaoTrade.getTid() + " has no orders!");
+			
+			List<OrderEntry> entries = new ArrayList<OrderEntry>();
+			for ( Order taobaoOrder : taobaoOrders ) {
+				OrderEntry orderEntry = convert( taobaoOrder );
+				entries.add( orderEntry );
+			}
+			normalizedOrder.setEntries(entries);
+		}
+		return orderList;
+	}
+
+	/**
+	 * Read a trade and convert to Order
+	 * */
+	private com.acn.aia.biz.service.domain.Order convert(Trade taobaoTrade)
+			throws OrderException {
+		com.acn.aia.biz.service.domain.Order order = orderConverter.convert(taobaoTrade);
+		if( order == null ) 
+			throw new OrderException("Convert failed.."+taobaoTrade);
+		return order;
+	}
+
+	private OrderEntry convert(Order taobaoOrder) throws OrderException {
+		OrderEntry orderEntry = orderEntryConverter.convert(taobaoOrder);
+		if (taobaoOrder == null)
+			throw new OrderException("TaobaoOrder cannot be null");
+		return orderEntry;
+	}
+}

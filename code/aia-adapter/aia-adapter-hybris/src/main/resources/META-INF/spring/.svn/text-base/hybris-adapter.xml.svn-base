@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd
+    ">
+
+	<!-- to use spring @Autowired for dependency injection -->
+	<context:annotation-config />
+	<bean id="propertyConfigurer" 	class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath:META-INF/spring/inf-ftp.properties</value>
+				<value>classpath:META-INF/spring/inf-mq.properties</value>
+			</list>
+		</property>
+	</bean>
+
+	<bean id="productService" class="com.acn.aia.adapter.hybris.ProductServiceImpl" />
+	
+	<bean id="productRouter" class="com.acn.aia.adapter.hybris.router.ProductRouter">
+		<property name="url" value="${product.inbound.url}"></property>
+		<property name="userName" value="${product.inbound.username}"></property>
+		<property name="password" value="${product.inbound.password}"></property>
+		<property name="queueDestination" value="${product.inbound.queue}"></property>
+	</bean>
+	<bean id="jms" class="org.apache.camel.component.jms.JmsComponent">
+		<property name="connectionFactory">
+			<bean class="org.apache.activemq.ActiveMQConnectionFactory">
+				<property name="brokerURL" value="${endpoint.mq.url}" />
+			</bean>
+		</property>
+	</bean>
+
+	<camelContext id="camel" xmlns="http://camel.apache.org/schema/spring">
+		<routeBuilder ref="productRouter" />
+	</camelContext>
+
+</beans>

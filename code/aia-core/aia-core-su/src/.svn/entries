@@ -1,0 +1,34 @@
+9
+
+dir
+804
+svn://internal.ec.accenture.com/APP/Integration-Layer/aia-core/aia-core-su/src
+svn://internal.ec.accenture.com/APP
+
+
+
+2013-06-18T02:44:14.728005Z
+804
+david
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+a0428360-92bd-11e2-98da-4500c20e251e
+
+test
+dir
+
+main
+dir
+

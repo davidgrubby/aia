@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd
+    ">
+	<!-- to use spring @Autowired for dependency injection -->
+	<context:annotation-config />
+
+	<bean id="propertyConfigurer"
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath:META-INF/spring/inf-ftp.properties</value>
+				<value>classpath:META-INF/spring/inf-mq.properties</value>
+				<value>classpath:META-INF/tmall/tmall-connector.properties</value>
+			</list>
+		</property>
+	</bean>
+	<bean id="jms" class="org.apache.camel.component.jms.JmsComponent">
+		<property name="connectionFactory">
+			<bean class="org.apache.activemq.ActiveMQConnectionFactory">
+				<property name="brokerURL" value="${endpoint.mq.url}" />
+			</bean>
+		</property>
+	</bean>
+
+
+	<!-- Business service implemnetations -->
+	<bean id="productService" class="com.acn.aia.adapter.tmall.ProductServiceImpl" />
+	<bean id="orderService" class="com.acn.aia.adapter.tmall.OrderServiceImpl" />
+
+	<!-- Routers -->
+	<bean id="productRouter" class="com.acn.aia.adapter.tmall.router.ProductRouter">
+		<property name="productQueue" value="${product.outbound.queue}"></property>
+	</bean>
+	<bean id="orderRouter" class="com.acn.aia.adapter.tmall.router.OrderRouter">
+		<property name="ordersQueue" value="${orders.inbound.queue}"></property>
+		<property name="url" value="${orders.outbound.url}"></property>
+		<property name="userName" value="${orders.outbound.username}"></property>
+		<property name="password" value="${orders.outbound.password}"></property>
+		<property name="folderName4ProceedDone" value="${foldername.done}"></property>
+		<property name="folderName4ErrorOccurred" value="${foldername.error}"></property>
+		<property name="interval" value="${order.sync.interval}"></property>
+		<property name="queryDate" value="${order.created.date}"></property>
+	</bean>
+
+
+	<!-- Routing -->
+	<camelContext id="productCamelRouter" xmlns="http://camel.apache.org/schema/spring">
+		<!-- <routeBuilder ref="productRouter" /> -->
+		<routeBuilder ref="orderRouter" />
+	</camelContext>
+
+	<!-- Tmall integration services -->
+	<bean id="tmallClient" class="com.acn.aia.adapter.tmall.TmallClient">
+		<constructor-arg type="java.lang.String" value="${top.url}"></constructor-arg>
+		<constructor-arg type="java.lang.String" value="${top.app.key}"></constructor-arg>
+		<constructor-arg type="java.lang.String" value="${top.secret}"></constructor-arg>
+		<constructor-arg type="java.lang.String" value="${top.session.key}"></constructor-arg>
+	</bean>
+
+	<!-- Helper utility -->
+	<bean id="categoryHelper" class="com.acn.aia.adapter.tmall.util.CategoryHelper" />
+	<bean id="propsHelper" class="com.acn.aia.adapter.tmall.util.PropsHelper" />
+	<bean id="skuHelper" class="com.acn.aia.adapter.tmall.util.SkuHelper" />
+	<bean id="productHelper" class="com.acn.aia.adapter.tmall.util.ProductHelper" />
+	<bean id="itemHelper" class="com.acn.aia.adapter.tmall.util.ItemHelper" />
+	<bean id="orderHelper" class="com.acn.aia.adapter.tmall.util.OrderHelper" />
+
+	<!-- Converters -->
+	<bean id="orderConverter" class="com.acn.aia.adapter.tmall.converter.OrderConverter" />
+	<bean id="orderEntryConverter" class="com.acn.aia.adapter.tmall.converter.OrderEntryConverter" />
+	<bean id="productConverter" class="com.acn.aia.adapter.tmall.converter.ProductConverter" />
+</beans>

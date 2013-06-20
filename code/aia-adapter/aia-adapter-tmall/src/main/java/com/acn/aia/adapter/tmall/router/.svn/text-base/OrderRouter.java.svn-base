@@ -1,0 +1,225 @@
+package com.acn.aia.adapter.tmall.router;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.camel.Exchange;
+import org.apache.camel.Processor;
+import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.model.dataformat.BindyType;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import com.acn.aia.biz.service.api.OrderService;
+import com.acn.aia.biz.service.domain.Order;
+import com.acn.aia.biz.service.domain.OrderEntry;
+import com.acn.aia.biz.service.domain.Product;
+import com.acn.aia.biz.service.exception.OrderException;
+import com.acn.aia.core.su.core.Callback;
+import com.acn.aia.core.utils.DateUtil;
+
+/**
+ * Order business router for Tmall. 
+ * 1) Retrieve orders from Tmall- 
+ * 2) Convert Orders to CSV and sync to hotfolder
+ * 3) Convert Entries to CSV and sync to hotfolder 
+ * TODO Extract customer info and sync back to hotfolder
+ * */
+public class OrderRouter extends RouteBuilder implements Callback {
+
+	@Autowired
+	private OrderService orderService;
+	private String ordersQueue;
+	private String url;
+	private String userName;
+	private String password;
+	private String folderName4ProceedDone;
+	private String folderName4ErrorOccurred;
+	private String interval;
+	
+	private String queryDate;
+	
+	private String orderCsvFileName;
+	
+	private List<Order> orders = new ArrayList<>();
+	private List<OrderEntry> newOrderEntries =new ArrayList<>();
+	private List<OrderEntry> orderEntries = new ArrayList<>();
+	
+
+	@Override
+	public void callback() {
+	}
+	
+	/**
+	 * Temporarily save order entries
+	 * */
+	private void filterOrderEntries(List<OrderEntry> entries ) {
+		
+		if( entries ==null || entries.isEmpty() ){
+			log.info("No new order entries need to sync");
+			return;
+		}
+		
+		for( OrderEntry orderEntry: entries ){
+			if( this.orderEntries.contains( orderEntry ) ) 
+				log.info("Duplicated order entry, id:" + orderEntry.getId() );
+			else {
+				this.orderEntries.add( orderEntry );
+				this.newOrderEntries.add( orderEntry);
+			}
+		}
+	}
+	
+	private List<OrderEntry> getNewOrderEntries(){
+		return this.newOrderEntries;
+	}
+	
+	/**
+	 * Each time, new order retrieved from Tmall,
+	 * Order entries needs to be cleaned.
+	 */
+	private void clearNewerOrderEntries(){
+		this.newOrderEntries =new ArrayList<>();
+	}
+	
+	private List<Order> getFilteredOrders(List<Order> orders){
+		if( orders ==null || orders.isEmpty() ){
+			log.info("No new orders need to sync");
+			return null;
+		}
+		
+		List<Order> newOrders = new ArrayList<>();
+		
+		for( Order order: orders ){
+			if( this.orders.contains( order ) ) 
+				log.info("Duplicated order, id:" + order.getId() );
+			else {
+				this.orders.add( order );
+				newOrders.add( order);
+			}
+		}
+		
+		return newOrders;
+	}
+	
+	@Override
+	public void configure() throws Exception {
+		//Retrieve orders from Tmall
+		from("timer://orderRetrievalTimer?period=" + Long.parseLong(interval)*1000 )
+		.process(new Processor() {
+			@Override
+			public void process(Exchange exchange) throws Exception {
+				final Date currentDate; 
+				if( queryDate != null && !"".equals( queryDate ))
+					currentDate = DateUtil.getDate(queryDate, "yyyy-MM-dd HH:mm:ss"); 
+				else
+					currentDate = new Date();
+				
+				//Retrieve orders from Tmall
+				List<Order> orders = orderService.retrieveOrders1DayAgo( currentDate );
+				//Filtering duplicated orders;
+				orders = getFilteredOrders(orders);
+				//Rebuild exchange message
+				if( orders == null || orders.isEmpty() ){
+					log.info("No new order needs to be proceeded");
+					//exchange.getOut().setBody(null);
+					throw new OrderException("No new order needs to be proceeded");
+				} else {
+					log.info("New orders needs to be proceeded");
+					for( Order order : orders )
+						filterOrderEntries( order.getEntries() ); // to filter duplicated order entries 
+					exchange.getOut().setBody( convertOrder2Msg( orders ));
+				}
+			}
+		}).to("jms:"+ordersQueue);
+		
+		//Construct CSV to order hotfolder
+		from("jms:"+ordersQueue).marshal().bindy(BindyType.Csv, "com.acn.aia.biz.service.domain").to("stream:out")
+		.to(url + "?username=" + userName + "&password=" + password+ "&fileName=order-${date:now:yyyyMMddhhmmss}.csv");
+		
+		//Construct CSV to order entries
+		from(url +"/"+folderName4ProceedDone + "?username=" + userName + "&password=" + password+ "&include=^order.*csv$&delete=true")
+		.process( new Processor() {
+			@Override
+			public void process(Exchange exchange) throws Exception {
+				List<OrderEntry> orderEntries = getNewOrderEntries();
+				if( orderEntries == null || orderEntries.isEmpty() ){
+					log.info("No new order entry need to be proceeded");
+				}
+				exchange.getOut().setBody( convertOrderEntry2Msg(  orderEntries ) );
+				// clean up entries once new order detected.
+				clearNewerOrderEntries();
+			}
+		}).marshal().bindy(BindyType.Csv, "com.acn.aia.biz.service.domain").to("stream:out")
+		.to(url + "?username=" + userName + "&password=" + password+ "&fileName=entry-${date:now:yyyyMMddhhmmss}.csv");
+	}
+	
+	/**
+	 * According to Camel document, the usage of Bindy.CSV need to be \
+	 * combined with List<Map<String, Object>> in In/Out message 
+	 * */
+	private List<Map<String, Object>> convertOrder2Msg(List<Order> orders) {
+		if( orders == null || orders.isEmpty() )
+			return null;
+		
+		List<Map<String, Object>> messages = new ArrayList<>();
+		for( Order order: orders ) {
+			Map<String, Object> message = new HashMap<>();
+			message.put(Order.class.getName(),  order);
+			messages.add( message );
+		}
+		
+		return messages;
+	}
+	
+	/**
+	 * According to Camel document, the usage of Bindy.CSV need to be \
+	 * combined with List<Map<String, Object>> in In/Out message 
+	 * */
+	private List<Map<String, Object>> convertOrderEntry2Msg(List<OrderEntry> orderEntries) {
+		if( orderEntries == null || orderEntries.isEmpty() )
+			return null;
+		
+		List<Map<String, Object>> messages = new ArrayList<>();
+		for( OrderEntry orderEntry: orderEntries ) {
+			Map<String, Object> message = new HashMap<>();
+			message.put(OrderEntry.class.getName(),  orderEntry);
+			messages.add( message );
+		}
+		
+		return messages;
+	}
+	
+	public void setUrl(String url) {
+		this.url = url;
+	}
+
+	public void setUserName(String userName) {
+		this.userName = userName;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+	public void setOrdersQueue(String ordersQueue) {
+		this.ordersQueue = ordersQueue;
+	}
+	public void setQueryDate(String queryDate){
+		this.queryDate = queryDate;
+	}
+	public void setFolderName4ProceedDone(String folderName4ProceedDone){
+		this.folderName4ProceedDone = folderName4ProceedDone;
+	}
+	
+	public void setFolderName4ErrorOccurred(String folderName4ErrorOccurred){
+		this.folderName4ErrorOccurred = folderName4ErrorOccurred;
+	}
+	
+	public void setInterval(String interval){
+		this.interval = interval;
+	}
+}

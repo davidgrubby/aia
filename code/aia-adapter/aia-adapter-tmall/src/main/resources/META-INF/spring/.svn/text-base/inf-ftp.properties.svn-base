@@ -1,0 +1,8 @@
+#(s)FTP connection configuration
+#Hybris adapter will listen on this FTP for product csv
+#orders.outbound.url=ftp://10.202.22.25:21/orders
+orders.outbound.url=ftp://CDC311113:21/orders
+orders.outbound.username=admin
+orders.outbound.password=admin
+foldername.done=done
+foldername.error=errors

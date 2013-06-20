@@ -1,0 +1,31 @@
+9
+
+dir
+805
+svn://internal.ec.accenture.com/APP/Integration-Layer/aia-adapter/aia-adapter-payment-su-alipay/src/test/java/com/acn/aia/adapter/payment/su
+svn://internal.ec.accenture.com/APP
+
+
+
+2013-04-18T05:57:17.887949Z
+128
+david
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+a0428360-92bd-11e2-98da-4500c20e251e
+
+alipay
+dir
+

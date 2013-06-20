@@ -1,0 +1,154 @@
+package com.acn.aia.adapter.tmall;
+
+import java.util.List;
+
+import org.apache.camel.test.junit4.CamelSpringTestSupport;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.context.support.AbstractXmlApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import com.acn.aia.biz.service.api.ProductService;
+import com.acn.aia.biz.service.domain.Product;
+import com.acn.aia.biz.service.exception.ProductException;
+
+public class ProductServiceImplTest extends CamelSpringTestSupport {
+	@Override
+	protected AbstractXmlApplicationContext createApplicationContext() {
+		return new ClassPathXmlApplicationContext("classpath:META-INF/spring/tmall-adapter.xml");
+	}
+	
+	private Product product;
+	private Product sandboxProduct;
+	private ProductService productService;
+	
+	@Before
+	public void prepareProduct(){
+		product = new Product();
+		String productId = "50012777";
+		String locale="zh_CN";
+		String productTitle = "2013 Eclipse单元测试";
+		String categoryId = "1234";
+		String categoryTitle = "保暖裤";
+		String baseProductId = "123";
+		String barCode = "3234541";
+		String type = "";
+		String status = "onsale";
+		String factoryId = "9823";
+		String factoryTitle = "上海闸北店";
+		String tax = "10";
+		String locationOfManufactory = "上海市闸北区中山北路2550号";
+		String properties = "品牌:猫人;颜色分类:天蓝色;厚度:加厚;面料材质:真丝";
+		String unit = "件";
+		String price = "125.05";
+		String quantity = "25";
+		String mainImageUrl = "C:/Users/fei.zhu/Pictures/7.png";
+		String description = "对于分销商品，不做任何图片校验";
+		String createDate = "";
+		String modifyDate = "";
+		
+		product.setProductId(productId);
+		product.setLocale(locale);
+		product.setProductTitle(productTitle);
+		product.setCategoryId( categoryId );
+		product.setCategoryTitle(categoryTitle);
+		product.setBaseproductId(baseProductId);
+		product.setType(type);
+		product.setStatus(status);
+		product.setFactoryId(factoryId);
+		product.setFactoryTitle(factoryTitle);
+		product.setTax(tax);
+		product.setLocationOfManuFactory(locationOfManufactory);
+		product.setProperties(properties);
+		product.setUnit(unit);
+		product.setPrice(price);
+		product.setQuantity(quantity);
+		product.setMainImageUrl(mainImageUrl);
+		product.setDescription(description);
+		product.setCreationDate(createDate);
+		product.setModifyDate(modifyDate);
+		product.setBarCode(barCode);
+	}
+	
+	@Before
+	public void prepareSandboxProduct(){
+		sandboxProduct = new Product();
+		String productId = "50012777";
+		String locale="zh_CN";
+		String productTitle = "沙箱测试 2013 Eclipse单元测试";
+		String categoryId = "1234";
+		String categoryTitle = "赠品";
+		String baseProductId = "123";
+		String barCode = "3234541";
+		String type = "";
+		String status = "onsale";
+		String factoryId = "9823";
+		String factoryTitle = "上海闸北店";
+		String tax = "10";
+		String locationOfManufactory = "上海市闸北区中山北路2550号";
+		String properties = "品牌:猫人;颜色分类:天蓝色;厚度:加厚;面料材质:真丝";
+		String unit = "件";
+		String price = "125.05";
+		String quantity = "25";
+		String mainImageUrl = "C:/Users/fei.zhu/Pictures/7.png";
+		String description = "对于分销商品，不做任何图片校验";
+		String createDate = "";
+		String modifyDate = "";
+		
+		sandboxProduct.setProductId(productId);
+		sandboxProduct.setLocale(locale);
+		sandboxProduct.setProductTitle(productTitle);
+		sandboxProduct.setCategoryId( categoryId );
+		sandboxProduct.setCategoryTitle(categoryTitle);
+		sandboxProduct.setBaseproductId(baseProductId);
+		sandboxProduct.setType(type);
+		sandboxProduct.setStatus(status);
+		sandboxProduct.setFactoryId(factoryId);
+		sandboxProduct.setFactoryTitle(factoryTitle);
+		sandboxProduct.setTax(tax);
+		sandboxProduct.setLocationOfManuFactory(locationOfManufactory);
+		sandboxProduct.setProperties(properties);
+		sandboxProduct.setUnit(unit);
+		sandboxProduct.setPrice(price);
+		sandboxProduct.setQuantity(quantity);
+		sandboxProduct.setMainImageUrl(mainImageUrl);
+		sandboxProduct.setDescription(description);
+		sandboxProduct.setCreationDate(createDate);
+		sandboxProduct.setModifyDate(modifyDate);
+		sandboxProduct.setBarCode(barCode);
+	}
+	
+	
+	
+	@Before
+	public void prepareService(){
+		productService = getMandatoryBean(ProductService.class, "productService");
+	}
+	
+	@Test
+	public void testParse() {
+		fail("Not yet implemented");
+	}
+
+	@Test
+	public void testCreateNewProduct() throws ProductException {
+		productService.loadProduct(product);
+		productService.loadProduct(sandboxProduct);
+		
+		try {
+			List<Product>products = productService.sync();
+			assertNotNull( products );
+			assertNotEquals( products.size() , 0 );
+		} catch (ProductException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	@Test
+	public void testCreateNewMerchandise()throws ProductException{
+		productService.loadProduct(product);
+		List<Product>products = productService.sync();
+		assertNotNull( products );
+	}
+	
+}

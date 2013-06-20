@@ -1,0 +1,29 @@
+#!!Mandatory configurations for TOP connection
+#Cannot initialize the connection if wrongly configured. 
+#For the understanding of the usage of each parameter, refer to http://api.taobao.com
+
+###################################
+### Tmall production configurations #########
+###################################
+#top.url= http://gw.api.taobao.com/router/rest
+#top.app.key=21181750
+#top.secret=00e2e87269446723115c2663bd9a9c60
+#session key is required to be refreshed periodically, refer to http://api.taobao.com/apitools/sessionPage.htm to refresh the session key.
+#top.session.key=6100804501581897d49510b0edc31ce0742af16081c9582263677171
+
+###################################
+### Tmall sandbox configurations #########
+###################################
+#For Tmall sandbox
+top.url= http://gw.api.tbsandbox.com/router/rest
+top.app.key=1021538424
+top.secret=sandboxbcb23d1ed7892ee9c62290122
+#Refresh session key, http://mini.tbsandbox.com/td/tools.htm
+top.session.key=6100e259c8ce1efbb500a88095c8a611a131ef39392a54a2055025167
+
+#order sync interval, second
+order.sync.interval = 60
+#for demo purpose, specify certain day to retrieve orders
+#comment out if real environment
+#order.created.date = 2013-06-17 20:20:20
+order.created.date = 

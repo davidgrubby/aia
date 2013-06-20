@@ -1,0 +1,41 @@
+package com.acn.aia.core.utils.threads.c04;
+
+/**
+ * Multi-thread
+ * 
+ * Use synchronized identifer on method or this
+ * */
+public class Ticket implements Runnable {
+
+	private int tick = 1000;
+
+	private Object obj = new Object();
+
+	public boolean flag = true;
+
+	@Override
+	public void run() {
+		if (flag) {
+			while (true) {
+				synchronized (this) {
+					if (tick > 0) {
+						try{Thread.currentThread().sleep(10);}catch (Exception e) {e.printStackTrace();}
+						System.out.println(Thread.currentThread().getName()+ " " + tick--);
+					} else {
+						System.out.println("Available tickets have been sold out "+ tick);
+						Thread.currentThread().stop();
+					}
+				}
+			}
+		} else 
+			while(true)
+				show();
+
+	}
+	
+	public synchronized void show(){
+		if( tick>0) 
+			System.out.println(Thread.currentThread().getName()+"...show..." + tick--);
+	}
+
+}
